@@ -37,14 +37,6 @@ public class Launcher {
     
     private static final String OPTION_CA_MITM = "ca_mitm";
     
-    private static final String OPTION_CA_KEYSTORE_PATH = "ca_keystore";
-    
-    private static final String OPTION_CA_KEYSTORE_PASSWORD = "ca_keystore_pwd";
-    
-    private static final String OPTION_CA_ALIAS = "ca_alias";
-    
-    private static final String OPTION_CA_PRIVATE_KEY_PASSWORD = "ca_privatekey_pwd";
-
     private static final String OPTION_NIC = "nic";
 
     /**
