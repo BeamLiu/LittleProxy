@@ -216,6 +216,24 @@
       <artifactId>slf4j-api</artifactId>
       <version>1.7.2</version>
     </dependency>
+
+    <dependency>
+      <groupId>org.bouncycastle</groupId>
+      <artifactId>bcprov-jdk15on</artifactId>
+      <version>1.52</version>
+    </dependency>
+    
+   <dependency>
+      <groupId>org.bouncycastle</groupId>
+      <artifactId>bcpkix-jdk15on</artifactId>
+      <version>1.52</version>
+    </dependency>
+    
+    <dependency>
+      <groupId>org.apache.commons</groupId>
+      <artifactId>commons-collections4</artifactId>
+      <version>4.0</version>
+    </dependency>
     
     <!-- Test dependencies -->
     <dependency>
@@ -421,11 +439,6 @@
             <configuration>
               <shadedArtifactAttached>true</shadedArtifactAttached>
               <shadedClassifierName>littleproxy-shade</shadedClassifierName>
-              <artifactSet>
-                <excludes>
-                  <exclude>org.bouncycastle:*</exclude>
-                </excludes>
-              </artifactSet>
 
               <filters>
                 <filter>
