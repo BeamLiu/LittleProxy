@@ -36,6 +36,10 @@ public class SelfSignedSslEngineSource extends BaseSelfSignedSslEngineSource {
 			KeyStore keyStore = KeyStore.getInstance("JKS");
 			keyStore.load(new FileInputStream(keyStorePath), PASSWORD.toCharArray());
 			setKeyStore(keyStore, PASSWORD);
+			if (!trustAllServers) {
+				// if not trust all servers, add truststore
+				setTrustStore(keyStore);
+			}
 		} catch (final Exception e) {
 			throw new Error("Failed to initialize the server-side SSLContext", e);
 		}

@@ -38,6 +38,10 @@ public abstract class BaseSelfSignedSslEngineSource implements SslEngineSource {
 		this.keyStorePassword = keyStorePassword;
 	}
 
+	protected void setTrustStore(KeyStore trustStore) {
+		this.trustStore = trustStore;
+	}
+
 	protected KeyStore getKeyStore() {
 		return this.keyStore;
 	}

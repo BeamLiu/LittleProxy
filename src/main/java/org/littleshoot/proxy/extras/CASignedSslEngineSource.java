@@ -109,7 +109,7 @@ public class CASignedSslEngineSource extends BaseSelfSignedSslEngineSource {
 
 	private X509Certificate signCSR(PKCS10CertificationRequest csr) throws IOException, OperatorCreationException, CertificateException,
 			NoSuchProviderException {
-		AlgorithmIdentifier sigAlgId = new DefaultSignatureAlgorithmIdentifierFinder().find("SHA1withRSA");
+		AlgorithmIdentifier sigAlgId = new DefaultSignatureAlgorithmIdentifierFinder().find("SHA256withRSA");
 		AlgorithmIdentifier digAlgId = new DefaultDigestAlgorithmIdentifierFinder().find(sigAlgId);
 
 		AsymmetricKeyParameter keyParameter = PrivateKeyFactory.createKey(caPrivateKey.getEncoded());

@@ -161,7 +161,7 @@ public class CASignedMitmManager implements MitmManager {
 		X509v3CertificateBuilder certBldr = new JcaX509v3CertificateBuilder(new X500Name("CN=" + SELF_SIGNED_CA_CN), new BigInteger(32,
 				new SecureRandom()), new Date(), DateUtils.addDays(new Date(), 3 * 365), new X500Name("CN=" + SELF_SIGNED_CA_CN),
 				keyPair.getPublic());
-		ContentSigner signer = new JcaContentSignerBuilder("SHA1withRSA").setProvider("BC").build(keyPair.getPrivate());
+		ContentSigner signer = new JcaContentSignerBuilder("SHA256withRSA").setProvider("BC").build(keyPair.getPrivate());
 		X509Certificate cert = new JcaX509CertificateConverter().setProvider("BC").getCertificate(certBldr.build(signer));
 		// save self signed CA keyStore
 		KeyStore keyStore = KeyStore.getInstance("JKS");
