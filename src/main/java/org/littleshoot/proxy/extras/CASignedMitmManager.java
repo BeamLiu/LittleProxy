@@ -36,6 +36,7 @@ import org.bouncycastle.cert.jcajce.JcaX509v3CertificateBuilder;
 import org.bouncycastle.operator.ContentSigner;
 import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
 import org.littleshoot.proxy.MitmManager;
+import org.littleshoot.proxy.SslEngineSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -55,30 +56,47 @@ public class CASignedMitmManager implements MitmManager {
 		// add new provider
 		Security.addProvider(new org.bouncycastle.jce.provider.BouncyCastleProvider());
 	}
-	private static final Logger LOG = LoggerFactory.getLogger(CASignedMitmManager.class);
-	private static TrustAllServersSslEngineSource trustAllServersSslEngineSource;
+	private static final Logger LOG = LoggerFactory
+			.getLogger(CASignedMitmManager.class);
+	private static SslEngineSource proxyToServerSslEngineSource;
 	private final String PASSWORD = "password";
 	private final String SELF_SIGNED_CA_CN = "LittleProxyRoot";
 	private final ReentrantLock lock = new ReentrantLock();
 
-	private String caKeyStorePath = System.getProperty("user.home") + "/littleproxy_root.jks";
+	private String caKeyStorePath = System.getProperty("user.home")
+			+ "/littleproxy_root.jks";
 	private String caKeyStorePassword = PASSWORD;
 	private String caKeyAlias = SELF_SIGNED_CA_CN;
 	private String caKeyPassword = PASSWORD;
-	private String caExportedCertificatePath = System.getProperty("user.home") + "/littleproxy_root.cer";
+	private String caExportedCertificatePath = System.getProperty("user.home")
+			+ "/littleproxy_root.cer";
 	// a cache for generated certificates, key is the certificate CN
-	private LRUMap<String, CASignedSslEngineSource> sslEngineSources = new LRUMap<String, CASignedSslEngineSource>(300);
+	private LRUMap<String, CASignedSslEngineSource> sslEngineSources = new LRUMap<String, CASignedSslEngineSource>(
+			300);
 
 	private Key caPrivateKey;
 	private Certificate[] caCertChain;
 
-	// use default CA
+	/**
+	 * use default CA and trust all servers
+	 */
 	public CASignedMitmManager() {
 		initCAInfo(true);
 	}
 
+	/**
+	 * use default CA and verify remote server using given trustStore, if
+	 * trustStore is null, use JDK default trustStore
+	 */
+	public CASignedMitmManager(final KeyStore trustStore) {
+		initCAInfo(true);
+		proxyToServerSslEngineSource = new ProxyToServersSslEngineSource(
+				trustStore);
+	}
+
 	// use an existing CA keystore
-	public CASignedMitmManager(String caKeyStorePath, String caKeyStorePassword, String caKeyAlias, String caKeyPassword) {
+	public CASignedMitmManager(String caKeyStorePath,
+			String caKeyStorePassword, String caKeyAlias, String caKeyPassword) {
 		this.caKeyStorePath = caKeyStorePath;
 		this.caKeyStorePassword = caKeyStorePassword;
 		this.caKeyAlias = caKeyAlias;
@@ -88,10 +106,10 @@ public class CASignedMitmManager implements MitmManager {
 
 	@Override
 	public SSLEngine serverSslEngine() {
-		if (trustAllServersSslEngineSource == null) {
-			trustAllServersSslEngineSource = new TrustAllServersSslEngineSource();
+		if (proxyToServerSslEngineSource == null) {
+			proxyToServerSslEngineSource = new ProxyToServersSslEngineSource();
 		}
-		return trustAllServersSslEngineSource.newSslEngine();
+		return proxyToServerSslEngineSource.newSslEngine();
 	}
 
 	@Override
@@ -113,7 +131,8 @@ public class CASignedMitmManager implements MitmManager {
 				// find the CASignedSslEngineSource from cache
 				sslEngineSource = sslEngineSources.get(domain);
 				if (sslEngineSource == null) {
-					sslEngineSource = new CASignedSslEngineSource(domain, caPrivateKey, caCertChain);
+					sslEngineSource = new CASignedSslEngineSource(domain,
+							caPrivateKey, caCertChain);
 					sslEngineSources.put(domain, sslEngineSource);
 				}
 			} finally {
@@ -121,11 +140,13 @@ public class CASignedMitmManager implements MitmManager {
 			}
 			return sslEngineSource.newSslEngine();
 		} catch (Exception e) {
-			throw new RuntimeException("cannot generate certificates for a ssl session", e);
+			throw new RuntimeException(
+					"cannot generate certificates for a ssl session", e);
 		}
 	}
 
-	private String getCNFromX509Certificate(X509Certificate cert) throws CertificateEncodingException {
+	private String getCNFromX509Certificate(X509Certificate cert)
+			throws CertificateEncodingException {
 		X500Name x500name = new JcaX509CertificateHolder(cert).getSubject();
 		RDN cn = x500name.getRDNs(BCStyle.CN)[0];
 		return IETFUtils.valueToString(cn.getFirst().getValue());
@@ -144,11 +165,17 @@ public class CASignedMitmManager implements MitmManager {
 			}
 			// restore CA information from keystore
 			KeyStore keyStore = KeyStore.getInstance("JKS");
-			keyStore.load(new FileInputStream(caKeyStorePath), caKeyStorePassword == null ? null : caKeyStorePassword.toCharArray());
-			caPrivateKey = keyStore.getKey(caKeyAlias, caKeyPassword == null ? null : caKeyPassword.toCharArray());
+			keyStore.load(
+					new FileInputStream(caKeyStorePath),
+					caKeyStorePassword == null ? null : caKeyStorePassword
+							.toCharArray());
+			caPrivateKey = keyStore.getKey(caKeyAlias, caKeyPassword == null
+					? null
+					: caKeyPassword.toCharArray());
 			caCertChain = keyStore.getCertificateChain(caKeyAlias);
 		} catch (Exception e) {
-			throw new Error("Failed to initialize the server-side SSLContext", e);
+			throw new Error("Failed to initialize the server-side SSLContext",
+					e);
 		}
 	}
 
@@ -158,18 +185,24 @@ public class CASignedMitmManager implements MitmManager {
 	 */
 	private void newRootKeyStore() throws Exception {
 		KeyPair keyPair = newRSAKeyPair();
-		X509v3CertificateBuilder certBldr = new JcaX509v3CertificateBuilder(new X500Name("CN=" + SELF_SIGNED_CA_CN), new BigInteger(32,
-				new SecureRandom()), new Date(), DateUtils.addDays(new Date(), 3 * 365), new X500Name("CN=" + SELF_SIGNED_CA_CN),
-				keyPair.getPublic());
-		ContentSigner signer = new JcaContentSignerBuilder("SHA256withRSA").setProvider("BC").build(keyPair.getPrivate());
-		X509Certificate cert = new JcaX509CertificateConverter().setProvider("BC").getCertificate(certBldr.build(signer));
+		X509v3CertificateBuilder certBldr = new JcaX509v3CertificateBuilder(
+				new X500Name("CN=" + SELF_SIGNED_CA_CN), new BigInteger(32,
+						new SecureRandom()), new Date(), DateUtils.addDays(
+						new Date(), 3 * 365), new X500Name("CN="
+						+ SELF_SIGNED_CA_CN), keyPair.getPublic());
+		ContentSigner signer = new JcaContentSignerBuilder("SHA256withRSA")
+				.setProvider("BC").build(keyPair.getPrivate());
+		X509Certificate cert = new JcaX509CertificateConverter().setProvider(
+				"BC").getCertificate(certBldr.build(signer));
 		// save self signed CA keyStore
 		KeyStore keyStore = KeyStore.getInstance("JKS");
 		keyStore.load(null, null);
-		X500PrivateCredential credential = new X500PrivateCredential(cert, keyPair.getPrivate(), caKeyAlias);
-		keyStore.setKeyEntry(credential.getAlias(), credential.getPrivateKey(), caKeyStorePassword.toCharArray(),
-				new Certificate[] { cert });
-		keyStore.store(new FileOutputStream(caKeyStorePath), caKeyStorePassword.toCharArray());
+		X500PrivateCredential credential = new X500PrivateCredential(cert,
+				keyPair.getPrivate(), caKeyAlias);
+		keyStore.setKeyEntry(credential.getAlias(), credential.getPrivateKey(),
+				caKeyStorePassword.toCharArray(), new Certificate[]{cert});
+		keyStore.store(new FileOutputStream(caKeyStorePath),
+				caKeyStorePassword.toCharArray());
 		LOG.info("CA keystore is generated successfully in " + caKeyStorePath);
 		/*
 		 * dump the certificate to a file, to make sure it is easy to install to
@@ -177,8 +210,10 @@ public class CASignedMitmManager implements MitmManager {
 		 * future, it also could be exported from the keystore using keytool
 		 * which is embeded in JDK
 		 */
-		dumpCertFromKeyStore(cert, System.getProperty("user.home") + "/littleproxy_root.cer");
-		LOG.info("dumpped a CA certificate copy to " + caExportedCertificatePath);
+		dumpCertFromKeyStore(cert, System.getProperty("user.home")
+				+ "/littleproxy_root.cer");
+		LOG.info("dumpped a CA certificate copy to "
+				+ caExportedCertificatePath);
 		// dump a copy to current running folder
 		dumpCertFromKeyStore(cert, "littleproxy_root.cer");
 	}
@@ -187,32 +222,45 @@ public class CASignedMitmManager implements MitmManager {
 	 * dump certificate to a cer file, to make sure it is easy to install to
 	 * client environment
 	 */
-	private void dumpCertFromKeyStore(X509Certificate cert, String path) throws CertificateEncodingException, IOException {
+	private void dumpCertFromKeyStore(X509Certificate cert, String path)
+			throws CertificateEncodingException, IOException {
 		FileOutputStream fos = new FileOutputStream(path);
 		fos.write(cert.getEncoded());
 		fos.flush();
 		fos.close();
 	}
 
-	private KeyPair newRSAKeyPair() throws NoSuchAlgorithmException, NoSuchProviderException {
+	private KeyPair newRSAKeyPair() throws NoSuchAlgorithmException,
+			NoSuchProviderException {
 		KeyPairGenerator kpGen = KeyPairGenerator.getInstance("RSA", "BC");
 		kpGen.initialize(1024, new SecureRandom());
 		return kpGen.generateKeyPair();
 	}
 
-	static class TrustAllServersSslEngineSource extends BaseSelfSignedSslEngineSource {
-		protected TrustAllServersSslEngineSource() {
+	static class ProxyToServersSslEngineSource
+			extends
+				BaseSelfSignedSslEngineSource {
+		protected ProxyToServersSslEngineSource() {
+			// not specify the trustStore, will trust all
 			super(true);
-			initEmptyKeyStore();
+			LOG.info("use turst all server truststore");
 		}
 
-		private void initEmptyKeyStore() {
-			try {
-				KeyStore keyStore = KeyStore.getInstance("JKS");
-				keyStore.load(null, null);
-			} catch (Exception e) {
-				throw new Error("Failed to initialize the server-side SSLContext", e);
+		protected ProxyToServersSslEngineSource(KeyStore trustStore) {
+			super(true);
+			if (trustStore == null) {
+				LOG.info("try to use JDK default trustStore");
+				try {
+					trustStore = KeyStore.getInstance("JKS");
+					trustStore.load(null, null);
+				} catch (Exception e) {
+					throw new RuntimeException(
+							"cannot initialize a truststore", e);
+				}
+			} else {
+				LOG.info("use external truststore");
 			}
+			setTrustStore(trustStore);
 		}
 	}
 }

@@ -59,38 +59,51 @@ public abstract class BaseSelfSignedSslEngineSource implements SslEngineSource {
 	}
 
 	private void initializeSSLContext() {
-		String algorithm = Security.getProperty("ssl.KeyManagerFactory.algorithm");
+		String algorithm = Security
+				.getProperty("ssl.KeyManagerFactory.algorithm");
 		if (algorithm == null) {
 			algorithm = "SunX509";
 		}
 
 		try {
 			// Set up key manager factory to use our key store
-			final KeyManagerFactory kmf = KeyManagerFactory.getInstance(algorithm);
-			kmf.init(keyStore, keyStorePassword == null ? null : keyStorePassword.toCharArray());
+			final KeyManagerFactory kmf = KeyManagerFactory
+					.getInstance(algorithm);
+			kmf.init(keyStore, keyStorePassword == null
+					? null
+					: keyStorePassword.toCharArray());
 
 			TrustManager[] trustManagers = null;
 			if (trustStore != null) {
 				// Set up a trust manager factory to use our key store
-				TrustManagerFactory tmf = TrustManagerFactory.getInstance(algorithm);
-				tmf.init(trustStore);
+				TrustManagerFactory tmf = TrustManagerFactory
+						.getInstance(algorithm);
+				// use jdk default truststore if it is an empty keystore
+				if (trustStore.size() == 0) {
+					tmf.init((KeyStore) null);
+				} else {
+					// use the given trustStore
+					tmf.init(trustStore);
+				}
 				trustManagers = tmf.getTrustManagers();
 			} else {
-				trustManagers = new TrustManager[] { new X509TrustManager() {
+				trustManagers = new TrustManager[]{new X509TrustManager() {
 					// TrustManager that trusts all servers
 					@Override
-					public void checkClientTrusted(X509Certificate[] arg0, String arg1) throws CertificateException {
+					public void checkClientTrusted(X509Certificate[] arg0,
+							String arg1) throws CertificateException {
 					}
 
 					@Override
-					public void checkServerTrusted(X509Certificate[] arg0, String arg1) throws CertificateException {
+					public void checkServerTrusted(X509Certificate[] arg0,
+							String arg1) throws CertificateException {
 					}
 
 					@Override
 					public X509Certificate[] getAcceptedIssuers() {
 						return null;
 					}
-				} };
+				}};
 			}
 
 			KeyManager[] keyManagers = null;
@@ -104,7 +117,8 @@ public abstract class BaseSelfSignedSslEngineSource implements SslEngineSource {
 			sslContext = SSLContext.getInstance(PROTOCOL);
 			sslContext.init(keyManagers, trustManagers, null);
 		} catch (final Exception e) {
-			throw new Error("Failed to initialize the server-side SSLContext", e);
+			throw new Error("Failed to initialize the server-side SSLContext",
+					e);
 		}
 	}
 }

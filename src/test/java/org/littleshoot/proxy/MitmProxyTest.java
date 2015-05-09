@@ -39,7 +39,7 @@ public class MitmProxyTest extends BaseProxyTest {
                             Queue<ChainedProxy> chainedProxies) {
                     }
                 })
-                .withManInTheMiddle(new SelfSignedMitmManager())
+                .withManInTheMiddle(getMitmManager())
                 .withFiltersSource(new HttpFiltersSourceAdapter() {
                     @Override
                     public HttpFilters filterRequest(HttpRequest originalRequest) {
@@ -97,6 +97,10 @@ public class MitmProxyTest extends BaseProxyTest {
                     }
                 })
                 .start();
+    }
+    
+    protected MitmManager getMitmManager(){
+    	return new SelfSignedMitmManager();
     }
 
     @Override

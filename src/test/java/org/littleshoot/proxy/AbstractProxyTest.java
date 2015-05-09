@@ -162,7 +162,7 @@ public abstract class AbstractProxyTest {
             throws Exception {
         String username = getUsername();
         String password = getPassword();
-        final DefaultHttpClient httpClient = buildHttpClient();
+        final DefaultHttpClient httpClient = buildHttpClient(isProxied);
         try {
             if (isProxied) {
                 final HttpHost proxy = new HttpHost("127.0.0.1",
@@ -202,7 +202,7 @@ public abstract class AbstractProxyTest {
             throws Exception {
         String username = getUsername();
         String password = getPassword();
-        DefaultHttpClient httpClient = buildHttpClient();
+        DefaultHttpClient httpClient = buildHttpClient(isProxied);
         try {
             if (isProxied) {
                 HttpHost proxy = new HttpHost("127.0.0.1", proxyServer.getListenAddress().getPort());
@@ -251,27 +251,35 @@ public abstract class AbstractProxyTest {
         }
     }
 
-    private DefaultHttpClient buildHttpClient() throws Exception {
+	/*
+	 * provide the override possibility to change the strategy according to
+	 * whether it is proxied, the default is using trusting self signed strategy
+	 */
+	protected SSLSocketFactory getSSLSocketFactory(boolean isProxied)
+			throws Exception {
+		return new SSLSocketFactory(new TrustSelfSignedStrategy(),
+				new X509HostnameVerifier() {
+					public boolean verify(String arg0, SSLSession arg1) {
+						return true;
+					}
+
+					public void verify(String host, String[] cns,
+							String[] subjectAlts) throws SSLException {
+					}
+
+					public void verify(String host, X509Certificate cert)
+							throws SSLException {
+					}
+
+					public void verify(String host, SSLSocket ssl)
+							throws IOException {
+					}
+				});
+	}
+    
+    private DefaultHttpClient buildHttpClient(boolean isProxied) throws Exception {
         DefaultHttpClient httpClient = new DefaultHttpClient();
-        SSLSocketFactory sf = new SSLSocketFactory(
-                new TrustSelfSignedStrategy(), new X509HostnameVerifier() {
-                    public boolean verify(String arg0, SSLSession arg1) {
-                        return true;
-                    }
-
-                    public void verify(String host, String[] cns,
-                            String[] subjectAlts)
-                            throws SSLException {
-                    }
-
-                    public void verify(String host, X509Certificate cert)
-                            throws SSLException {
-                    }
-
-                    public void verify(String host, SSLSocket ssl)
-                            throws IOException {
-                    }
-                });
+        SSLSocketFactory sf = getSSLSocketFactory(isProxied);
         Scheme scheme = new Scheme("https", 443, sf);
         httpClient.getConnectionManager().getSchemeRegistry().register(scheme);
         return httpClient;
