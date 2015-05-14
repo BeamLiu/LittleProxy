@@ -28,6 +28,7 @@ import org.bouncycastle.asn1.x500.X500Name;
 import org.bouncycastle.asn1.x509.AlgorithmIdentifier;
 import org.bouncycastle.asn1.x509.BasicConstraints;
 import org.bouncycastle.asn1.x509.Extension;
+import org.bouncycastle.asn1.x509.Extensions;
 import org.bouncycastle.asn1.x509.GeneralNames;
 import org.bouncycastle.asn1.x509.KeyUsage;
 import org.bouncycastle.cert.X509CertificateHolder;
@@ -144,11 +145,18 @@ public class CASignedSslEngineSource extends BaseSelfSignedSslEngineSource {
 	}
 	
 	private void copySubjectAlternativeName(X509Certificate src,
-			X509v3CertificateBuilder dest) throws CertificateEncodingException, IOException {
-		GeneralNames generalNames = GeneralNames.fromExtensions(
-				new X509CertificateHolder(src.getEncoded()).getExtensions(),
-				Extension.subjectAlternativeName);
-		dest.addExtension(Extension.subjectAlternativeName, false, generalNames);
+			X509v3CertificateBuilder dest) throws CertificateEncodingException,
+			IOException {
+		Extensions extensions = new X509CertificateHolder(src.getEncoded())
+				.getExtensions();
+		if (extensions != null) {
+			GeneralNames generalNames = GeneralNames.fromExtensions(extensions,
+					Extension.subjectAlternativeName);
+			if (generalNames != null) {
+				dest.addExtension(Extension.subjectAlternativeName, false,
+						generalNames);
+			}
+		}
 	}
 
 	private PKCS10CertificationRequest newCSR(KeyPair keyPair) throws OperatorCreationException {

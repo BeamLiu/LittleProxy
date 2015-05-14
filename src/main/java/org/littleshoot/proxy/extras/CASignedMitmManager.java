@@ -65,14 +65,14 @@ public class CASignedMitmManager implements MitmManager {
 	private static final Logger LOG = LoggerFactory
 			.getLogger(CASignedMitmManager.class);
 	private static SslEngineSource proxyToServerSslEngineSource;
-	private final String PASSWORD = "password";
-	private final String SELF_SIGNED_CA_CN = "LittleProxyRoot";
+	private final String PASSWORD = "Be Your Own Lantern";
+	private final String SELF_SIGNED_CA_INFO = "OU=LittleProxy,O=LittleProxy,CN=LittleProxyRoot";
 	private final ReentrantLock lock = new ReentrantLock();
 
 	private String caKeyStorePath = System.getProperty("user.home")
 			+ "/littleproxy_root.jks";
 	private String caKeyStorePassword = PASSWORD;
-	private String caKeyAlias = SELF_SIGNED_CA_CN;
+	private String caKeyAlias = "LittleProxyRoot";
 	private String caKeyPassword = PASSWORD;
 	private String caExportedCertificatePath = System.getProperty("user.home")
 			+ "/littleproxy_root.cer";
@@ -192,10 +192,9 @@ public class CASignedMitmManager implements MitmManager {
 	private void newRootKeyStore() throws Exception {
 		KeyPair keyPair = newRSAKeyPair();
 		X509v3CertificateBuilder certBldr = new JcaX509v3CertificateBuilder(
-				new X500Name("CN=" + SELF_SIGNED_CA_CN), new BigInteger(32,
+				new X500Name(SELF_SIGNED_CA_INFO), new BigInteger(32,
 						new SecureRandom()), new Date(), DateUtils.addDays(
-						new Date(), 3 * 365), new X500Name("CN="
-						+ SELF_SIGNED_CA_CN), keyPair.getPublic());
+						new Date(), 3 * 365), new X500Name(SELF_SIGNED_CA_INFO), keyPair.getPublic());
 		ContentSigner signer = new JcaContentSignerBuilder("SHA256withRSA")
 				.setProvider("BC").build(keyPair.getPrivate());
 		// adding constraints
