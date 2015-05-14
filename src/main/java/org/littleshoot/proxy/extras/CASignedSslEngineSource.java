@@ -12,6 +12,7 @@ import java.security.NoSuchAlgorithmException;
 import java.security.NoSuchProviderException;
 import java.security.SecureRandom;
 import java.security.cert.Certificate;
+import java.security.cert.CertificateEncodingException;
 import java.security.cert.CertificateException;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
@@ -25,6 +26,10 @@ import javax.security.auth.x500.X500PrivateCredential;
 import org.apache.commons.lang3.time.DateUtils;
 import org.bouncycastle.asn1.x500.X500Name;
 import org.bouncycastle.asn1.x509.AlgorithmIdentifier;
+import org.bouncycastle.asn1.x509.BasicConstraints;
+import org.bouncycastle.asn1.x509.Extension;
+import org.bouncycastle.asn1.x509.GeneralNames;
+import org.bouncycastle.asn1.x509.KeyUsage;
 import org.bouncycastle.cert.X509CertificateHolder;
 import org.bouncycastle.cert.X509v3CertificateBuilder;
 import org.bouncycastle.crypto.params.AsymmetricKeyParameter;
@@ -61,12 +66,14 @@ public class CASignedSslEngineSource extends BaseSelfSignedSslEngineSource {
 	private Key caPrivateKey;
 	private Certificate[] caCertChain;
 	private final String domain;
+	private Certificate[] peerCerts;
 
-	public CASignedSslEngineSource(String domain, Key caPrivateKey, Certificate[] caCertChain) {
+	public CASignedSslEngineSource(String domain, Key caPrivateKey, Certificate[] caCertChain, Certificate[] peerCerts) {
 		super(true);
 		this.domain = domain;
 		this.caPrivateKey = caPrivateKey;
 		this.caCertChain = caCertChain;
+		this.peerCerts = peerCerts;
 	}
 
 	@Override
@@ -118,6 +125,12 @@ public class CASignedSslEngineSource extends BaseSelfSignedSslEngineSource {
 				.getSubjectX500Principal().getEncoded()), new BigInteger(32, new SecureRandom()), new Date(), DateUtils.addDays(new Date(),
 				3 * 365), csr.getSubject(), csr.getSubjectPublicKeyInfo());
 
+		certBuilder.addExtension(Extension.basicConstraints, true,
+				new BasicConstraints(false));
+		certBuilder.addExtension(Extension.keyUsage, true, new KeyUsage(
+				KeyUsage.digitalSignature));
+		copySubjectAlternativeName((X509Certificate) peerCerts[0], certBuilder);
+		
 		ContentSigner sigGen = new BcRSAContentSignerBuilder(sigAlgId, digAlgId).build(keyParameter);
 
 		X509CertificateHolder holder = certBuilder.build(sigGen);
@@ -128,6 +141,14 @@ public class CASignedSslEngineSource extends BaseSelfSignedSslEngineSource {
 		X509Certificate signedCert = (X509Certificate) cf.generateCertificate(is1);
 		is1.close();
 		return signedCert;
+	}
+	
+	private void copySubjectAlternativeName(X509Certificate src,
+			X509v3CertificateBuilder dest) throws CertificateEncodingException, IOException {
+		GeneralNames generalNames = GeneralNames.fromExtensions(
+				new X509CertificateHolder(src.getEncoded()).getExtensions(),
+				Extension.subjectAlternativeName);
+		dest.addExtension(Extension.subjectAlternativeName, false, generalNames);
 	}
 
 	private PKCS10CertificationRequest newCSR(KeyPair keyPair) throws OperatorCreationException {
